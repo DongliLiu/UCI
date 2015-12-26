@@ -1,0 +1,101 @@
+---
+title: "CodeBook"
+output: html_document
+---
+
+This CodeBook will describe the project step-by-step.
+
+The precondition is, package dplyr installed into your computer and then:
+
+```R
+library(dplyr)
+```
+
+First of first, please download [Human Activity Recognition Using Smartphones Data Set](http://archive.ics.uci.edu/ml/datasets/Human+Activity+Recognition+Using+Smartphones).
+
+### Step 1: Merges the training and the test sets to create one data set. This includes:
+
+
+1. Load features and labels
+```R
+features.names <- read.table("UCI HAR Dataset/features.txt", 
+                             col.names = c("id", "features"))
+activity.labels <- read.table("UCI HAR Dataset/activity_labels.txt", 
+                              col.names = c("activity","label"))
+```
+
+2. Load test and train files
+```R
+x.test <- read.table("UCI HAR Dataset/test/X_test.txt", 
+                     col.names = features.names$features)
+x.train <- read.table("UCI HAR Dataset/train/X_train.txt", 
+                      col.names = features.names$features)
+subject.test <- read.table("UCI HAR Dataset/test/subject_test.txt", 
+                           col.names = "subject")
+subject.train <- read.table("UCI HAR Dataset/train/subject_train.txt", 
+                            col.names = c("subject"))
+y.test <- read.table("UCI HAR Dataset/test/y_test.txt", 
+                     col.names = c("activity"))
+y.train <- read.table("UCI HAR Dataset/train/y_train.txt", 
+                      col.names = c("activity"))
+```
+
+3. Then to bind them
+```R
+x.all <- bind_rows(x.test, x.train)
+y.all <- bind_rows(y.test, y.train)
+xy.all <- bind_cols(y.all, x.all)
+subject.all <- bind_rows(subject.test, subject.train)
+data.all <- bind_cols(subject.all, xy.all)
+```
+
+
+### Step 2: To extracts only the measurements on the mean and standard deviation for 
+###each measurement.
+
+Here we set `ignore.case = TRUE` to make sure both mean & Mean could be included; indeed default is TRUE
+```R
+data.extract <- select(data.all, subject, activity, 
+                       contains("mean", ignore.case = TRUE), contains("std"))
+```
+
+### Step 3: Uses descriptive activity names to name the activities in the data set, by combining extracted data with activity labels, then drop activity column leave the label
+
+```R
+data.joined <- left_join(activity.labels, data.extract, by = "activity")
+data.desc <- select(data.joined, -activity)
+```
+
+
+
+
+### Step 4: Appropriately labels the data set with descriptive variable names.
+
+Here we only drop unnecesary "." and correct "Mean" to "mean":
+
+```R
+temp <- names(data.desc)
+temp1 <- gsub("\\.\\.\\.", ".", temp)
+temp2 <- gsub("\\.\\.$", "", temp1)
+temp3 <- gsub("\\.$", "", temp2)
+temp4 <- gsub("Mean", "mean", temp3)
+names(data.desc) <- temp4
+```
+
+### Step 5: Creates a second, independent tidy data set with the average of each variable for each activity and each subject. 
+
+We adopted pipe operation in dplyr:
+
+```R
+data.mean <-
+  data.desc %>%
+  group_by(subject, label) %>%
+  summarise_each(funs(mean)) 
+```
+
+Then output the data with
+```R
+write.table(data.mean, file="data.mean.txt", row.name=FALSE)
+```
+
+
